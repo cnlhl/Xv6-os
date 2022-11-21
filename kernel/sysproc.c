@@ -75,6 +75,30 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 addr;
+  int len,bitmask;
+  argaddr(0, &addr);
+  argint(1, &len);
+  argint(2, &bitmask);
+  
+  if(addr<0|| len<0|| bitmask<0)
+    return -1;
+   
+  if(len>32||len<0)
+    return -1; 
+   
+  int res = 0;
+  
+  struct proc *p = myproc();
+  for(int i=0;i<len;i++){
+    int va = addr + i*PGSIZE;
+    int abit = vm_pgaccess(p->pagetable, va);
+    res = res | abit <<i;
+  }
+  
+  if(copyout(p->pagetable, bitmask, (char*)&res, sizeof(res))<0)
+    return -1;  
+    
   return 0;
 }
 #endif
