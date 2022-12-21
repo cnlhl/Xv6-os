@@ -91,3 +91,36 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64 
+sys_trace(void){
+  int n;
+  argint(0,&n);
+  if(n<0){
+    return -1;
+  }
+  myproc()->trace_mask = n;
+  return 0;
+}
+
+#include "sysinfo.h"
+
+uint64
+sys_sysinfo(void){
+  uint64 addr;
+  struct sysinfo info;
+  struct proc *p = myproc();
+  argaddr(0, &addr);
+  if (addr < 0)
+	  return -1;
+  info.freemem = free_mem();
+  info.nproc = nproc();
+  strncpy(info.student_ID,"20307130260",12);
+  printf("my student number is %s\n",info.student_ID);
+
+  if (copyout(p->pagetable, addr, (char *)&info,sizeof(info)) < 0)
+    return -1;  
+  
+  return 0;
+}
+
