@@ -621,3 +621,52 @@ int vmatrylazytouch(uint64 va) {
 
   return 1;
 }
+
+
+uint64
+sys_munmap(void)
+{
+  uint64 addr, sz;
+
+  argaddr(0, &addr);
+  argaddr(1, &sz);
+
+  if(addr < 0 || sz < 0 || sz == 0)
+    return -1;
+
+  struct proc *p = myproc();
+
+  struct vma *v = findvma(p, addr);
+  if(v == 0) {
+    return -1;
+  }
+
+  if(addr > v->vastart && addr + sz < v->vastart + v->sz) {
+    // trying to "dig a hole" inside the memory range.
+    return -1;
+  }
+
+  uint64 addr_aligned = addr;
+  if(addr > v->vastart) {
+    addr_aligned = PGROUNDUP(addr);
+  }
+
+  int nunmap = sz - (addr_aligned-addr); // nbytes to unmap
+  if(nunmap < 0)
+    nunmap = 0;
+  
+  vmaunmap(p->pagetable, addr_aligned, nunmap, v); // custom memory page unmap routine for mmapped pages.
+
+  if(addr <= v->vastart && addr + sz > v->vastart) { // unmap at the beginning
+    v->offset += addr + sz - v->vastart;
+    v->vastart = addr + sz;
+  }
+  v->sz -= sz;
+
+  if(v->sz <= 0) {
+    fileclose(v->f);
+    v->valid = 0;
+  }
+
+  return 0;  
+}
