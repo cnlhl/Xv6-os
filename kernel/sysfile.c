@@ -567,3 +567,57 @@ sys_mmap(void)
 
   return v->vastart;
 }
+
+// find a vma using a virtual address inside that vma.
+struct vma *findvma(struct proc *p, uint64 va) {
+  for(int i=0;i<NVMA;i++) {
+    struct vma *vv = &p->vmas[i];
+    if(vv->valid == 1 && va >= vv->vastart && va < vv->vastart + vv->sz) {
+      return vv;
+    }
+  }
+  return 0;
+}
+
+// finds out whether a page is previously lazy-allocated for a vma
+// and needed to be touched before use.
+// if so, touch it so it's mapped to an actual physical page and contains
+// content of the mapped file.
+int vmatrylazytouch(uint64 va) {
+  struct proc *p = myproc();
+  struct vma *v = findvma(p, va);
+  if(v == 0) {
+    return 0;
+  }
+
+  // printf("vma mapping: %p => %d\n", va, v->offset + PGROUNDDOWN(va - v->vastart));
+
+  // allocate physical page
+  void *pa = kalloc();
+  if(pa == 0) {
+    panic("vmalazytouch: kalloc");
+  }
+  memset(pa, 0, PGSIZE);
+  
+  // read data from disk
+  begin_op();
+  ilock(v->f->ip);
+  readi(v->f->ip, 0, (uint64)pa, v->offset + PGROUNDDOWN(va - v->vastart), PGSIZE);
+  iunlock(v->f->ip);
+  end_op();
+
+  // set appropriate perms, then map it.
+  int perm = PTE_U;
+  if(v->prot & PROT_READ)
+    perm |= PTE_R;
+  if(v->prot & PROT_WRITE)
+    perm |= PTE_W;
+  if(v->prot & PROT_EXEC)
+    perm |= PTE_X;
+
+  if(mappages(p->pagetable, va, PGSIZE, (uint64)pa, PTE_R | PTE_W | PTE_U) < 0) {
+    panic("vmalazytouch: mappages");
+  }
+
+  return 1;
+}
