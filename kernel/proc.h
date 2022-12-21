@@ -81,6 +81,16 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct vma {
+  int valid;
+  uint64 vastart;
+  uint64 sz;
+  struct file *f;
+  int prot;
+  int flags;
+  uint64 offset;
+};
+
 // Per-process state
 #define NVMA 16
 
@@ -108,15 +118,3 @@ struct proc {
   struct vma vmas[NVMA];       // virtual memory areas
 };
 // kernel/proc.h
-
-struct vma {
-  int valid;
-  uint64 vastart;
-  uint64 sz;
-  struct file *f;
-  int prot;
-  int flags;
-  uint64 offset;
-};
-
-
